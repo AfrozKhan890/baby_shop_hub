@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="BabyShopHub - Your baby products store">
+  <meta name="description" content="BabyShopHub - Baby Products Shopping App">
   
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,33 +11,44 @@
   <meta name="apple-mobile-web-app-title" content="baby_shop_hub">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
   <title>BabyShopHub</title>
   <link rel="manifest" href="manifest.json">
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   
   <script>
-    // Aapka Firebase Config
+    // Firebase configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyBENGjQjW1kbH49r60QWZFALyuaxMmnuHA",
-      authDomain: "baby-shop-hub-8dab0.firebaseapp.com",
-      projectId: "baby-shop-hub-8dab0",
-      storageBucket: "baby-shop-hub-8dab0.firebasestorage.app",
-      messagingSenderId: "728184075532",
-      appId: "1:728184075532:web:379fe9c3655ea9f1b0c529",
-      measurementId: "G-TE3KJFME1J"
+      apiKey: "AIzaSyCsUh8MFpL2XE_OOCYc4TrquaWL4BKNhlQ",
+      authDomain: "babyshophub-6123b.firebaseapp.com",
+      projectId: "babyshophub-6123b",
+      storageBucket: "babyshophub-6123b.firebasestorage.app",
+      messagingSenderId: "889317806404",
+      appId: "1:889317806404:web:8fc30e0b7650bd8a54c711",
+      measurementId: "G-4MVT3M53N3"
     };
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
-    
-    console.log('🔥 Firebase initialized for BabyShopHub');
   </script>
-</head>
-<body>
+  
+  <!-- This script installs service_worker.js to provide PWA functionality to
+       application. For more information, see:
+       https://developers.google.com/web/fundamentals/primers/service-workers -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('flutter_service_worker.js');
+      });
+    }
+  </script>
+  
   <script src="main.dart.js" type="application/javascript"></script>
 </body>
 </html>

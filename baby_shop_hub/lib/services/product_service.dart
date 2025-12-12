@@ -1,42 +1,32 @@
-import '../data/dummy_data.dart';
 import '../models/product_model.dart';
+import '../data/dummy_data.dart';
 
 class ProductService {
-  // Get all products
   List<Product> getAllProducts() {
-    return DummyData.products;
+    return DummyData.getProducts();
   }
 
-  // Get products by category
-  List<Product> getProductsByCategory(String category) {
-    if (category == 'All') {
-      return DummyData.products;
-    }
-    return DummyData.products.where((product) => product.category == category).toList();
-  }
-
-  // Search products
-  List<Product> searchProducts(String query) {
-    if (query.isEmpty) return DummyData.products;
-    
-    return DummyData.products.where((product) =>
-      product.name.toLowerCase().contains(query.toLowerCase()) ||
-      product.description.toLowerCase().contains(query.toLowerCase()) ||
-      product.brand.toLowerCase().contains(query.toLowerCase())
-    ).toList();
-  }
-
-  // Get featured products
   List<Product> getFeaturedProducts() {
-    return DummyData.products.where((product) => product.rating >= 4.5).toList();
+    return DummyData.getFeaturedProducts();
   }
 
-  // Get product by ID
+  List<Product> getProductsByCategory(String category) {
+    return DummyData.getProductsByCategory(category);
+  }
+
+  List<Product> searchProducts(String query) {
+    if (query.isEmpty) return getAllProducts();
+    
+    final lowerQuery = query.toLowerCase();
+    return getAllProducts().where((product) {
+      return product.name.toLowerCase().contains(lowerQuery) ||
+             product.description.toLowerCase().contains(lowerQuery) ||
+             product.brand.toLowerCase().contains(lowerQuery) ||
+             product.category.toLowerCase().contains(lowerQuery);
+    }).toList();
+  }
+
   Product? getProductById(String id) {
-    try {
-      return DummyData.products.firstWhere((product) => product.id == id);
-    } catch (e) {
-      return null;
-    }
+    return getAllProducts().firstWhere((product) => product.id == id);
   }
 }

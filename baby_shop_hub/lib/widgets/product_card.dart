@@ -1,9 +1,10 @@
-// widgets/product_card.dart - SIMPLIFIED VERSION
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 import '../models/product_model.dart';
 import '../utils/app_theme.dart';
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final Product product;
   final VoidCallback onTap;
   final VoidCallback onAddToCart;
@@ -16,12 +17,67 @@ class ProductCard extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  _ProductCardState createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  String? _selectedVariantId;
+  ProductVariant? _selectedVariant;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default variant select karo
+    if (widget.product.variants.isNotEmpty) {
+      _selectedVariantId = widget.product.variants.first.id;
+      _selectedVariant = widget.product.variants.first;
+    }
+  }
+
+  // Method to decode base64 image
+  Uint8List? _decodeBase64Image(String base64String) {
+    if (!base64String.startsWith('data:image')) return null;
+    
+    try {
+      final String data = base64String.split(',').last;
+      return base64.decode(data);
+    } catch (e) {
+      print('Error decoding base64 image: $e');
+      return null;
+    }
+  }
+
+  // Get price to display - agar multiple variants hain to range show karo
+  String _getPriceDisplay() {
+    if (widget.product.variants.length == 1) {
+      return '\$${widget.product.variants.first.price.toStringAsFixed(2)}';
+    } else if (_selectedVariant != null) {
+      return '\$${_selectedVariant!.price.toStringAsFixed(2)}';
+    } else {
+      // Price range for multiple variants
+      return '\$${widget.product.minPrice.toStringAsFixed(2)} - \$${widget.product.maxPrice.toStringAsFixed(2)}';
+    }
+  }
+
+  // Add to cart with selected variant
+  void _addToCartWithVariant() {
+    // Create a copy of product with selected variant
+    final productToAdd = widget.product.copyWith(
+      variants: _selectedVariant != null ? [_selectedVariant!] : widget.product.variants,
+    );
+    
+    // Call the original onAddToCart callback
+    widget.onAddToCart();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasMultipleVariants = widget.product.variants.length > 1;
+    
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         width: 170,
-        height: 260,
         margin: EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -36,17 +92,18 @@ class ProductCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // IMAGE SECTION - FIXED
+            // IMAGE SECTION
             Container(
-              height: 120,
+              height: 140,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
                 ),
-                color: _getCategoryColor(product.category),
+                color: _getCategoryColor(widget.product.category),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.only(
@@ -58,85 +115,114 @@ class ProductCard extends StatelessWidget {
             ),
             
             // PRODUCT INFO
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Product Name
-                  Text(
-                    product.name,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.customColors['textDark'],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4),
-                  
-                  // Brand
-                  Text(
-                    product.brand,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.customColors['textLight'],
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  
-                  // Rating
-                  Row(
-                    children: [
-                      _buildRatingStars(product.rating),
-                      SizedBox(width: 4),
-                      Text(
-                        '(${product.reviewCount})',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.customColors['textLight'],
-                        ),
+            Expanded( 
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Product Name
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: 40,
                       ),
-                    ],
-                  ),
-                  SizedBox(height: 12),
-                  
-                  // Price and Add to Cart
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Price
-                      Text(
-                        '\$${product.price.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.customColors['babyBlue'],
-                        ),
-                      ),
-                      
-                      // Add to Cart Button
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppTheme.customColors['peach'],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: IconButton(
-                          onPressed: onAddToCart,
-                          icon: Icon(
-                            Icons.add_shopping_cart,
-                            color: Colors.white,
-                            size: 18,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.product.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.customColors['textDark'],
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          padding: EdgeInsets.zero,
-                        ),
+                          SizedBox(height: 2),
+                          
+                          // Brand
+                          Text(
+                            widget.product.brand,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.customColors['textLight'],
+                            ),
+                          ),
+                          
+                          // Variant indicator (if multiple)
+                          if (hasMultipleVariants)
+                            Container(
+                              margin: EdgeInsets.only(top: 2),
+                              child: Text(
+                                '${widget.product.variants.length} variants',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.blue[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    
+                    // Rating
+                    Row(
+                      children: [
+                        _buildRatingStars(widget.product.rating),
+                        SizedBox(width: 4),
+                        Text(
+                          '(${widget.product.reviewCount})',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.customColors['textLight'],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Price and Cart Button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Price - Show based on variant
+                        Flexible(
+                          child: Text(
+                            _getPriceDisplay(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.customColors['babyBlue'],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        
+                        // Add to Cart Button
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: AppTheme.customColors['peach'],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: IconButton(
+                            onPressed: _addToCartWithVariant,
+                            icon: Icon(
+                              Icons.add_shopping_cart,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -146,39 +232,77 @@ class ProductCard extends StatelessWidget {
   }
 
   Widget _buildImage() {
-    // Try to load network image first
-    if (product.imageUrl.startsWith('http')) {
+    if (widget.product.images.isEmpty) {
+      return _buildPlaceholderIcon();
+    }
+
+    final String imageUrl = widget.product.images.first;
+    
+    // Check for base64 image
+    if (imageUrl.startsWith('data:image')) {
+      final Uint8List? imageBytes = _decodeBase64Image(imageUrl);
+      if (imageBytes != null) {
+        return Image.memory(
+          imageBytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildPlaceholderIcon();
+          },
+        );
+      }
+    }
+    
+    // Check for network image
+    if (imageUrl.startsWith('http')) {
       return Image.network(
-        product.imageUrl,
+        imageUrl,
         fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2,
+            ),
+          );
+        },
         errorBuilder: (context, error, stackTrace) {
           return _buildPlaceholderIcon();
         },
       );
-    } 
-    // Try local asset
-    else if (product.imageUrl.startsWith('assets')) {
+    }
+    
+    // Check for asset image
+    if (imageUrl.startsWith('assets/')) {
       try {
         return Image.asset(
-          product.imageUrl,
+          imageUrl,
           fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildPlaceholderIcon();
+          },
         );
       } catch (e) {
         return _buildPlaceholderIcon();
       }
     }
-    // Use placeholder
-    else {
-      return _buildPlaceholderIcon();
-    }
+    
+    // Default placeholder
+    return _buildPlaceholderIcon();
   }
 
   Widget _buildPlaceholderIcon() {
     return Container(
-      color: _getCategoryColor(product.category),
+      color: _getCategoryColor(widget.product.category),
       child: Center(
         child: Icon(
-          _getCategoryIcon(product.category),
+          _getCategoryIcon(widget.product.category),
           size: 40,
           color: Colors.white,
         ),
@@ -192,7 +316,7 @@ class ProductCard extends StatelessWidget {
         return Icon(
           index < rating.floor() ? Icons.star : Icons.star_border,
           color: Colors.amber,
-          size: 14,
+          size: 10,
         );
       }),
     );

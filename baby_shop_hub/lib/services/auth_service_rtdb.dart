@@ -12,7 +12,7 @@ class AuthService {
   AppUser? get currentUser => _currentUser;
   bool get isLoggedIn => _isLoggedIn;
 
-  // Demo users
+  // Demo users - FIXED EMAILS
   final List<Map<String, dynamic>> _demoUsers = [
     {
       'email': 'parent@example.com',
@@ -22,7 +22,7 @@ class AuthService {
       'role': 'user',
     },
     {
-      'email': 'admin@example.com',
+      'email': 'admin@example.com', // CHANGED: Use example.com
       'password': 'admin123',
       'name': 'Admin User',
       'phone': '+0987654321',
@@ -35,6 +35,7 @@ class AuthService {
     
     print('🔐 Login attempt: $email');
     
+    // Normalize email (trim and lowercase)
     final normalizedEmail = email.trim().toLowerCase();
     
     final user = _demoUsers.firstWhere(
@@ -45,6 +46,7 @@ class AuthService {
 
     if (user.isNotEmpty) {
       print('✅ Login successful for: ${user['email']}');
+      print('👑 Role: ${user['role']}');
       
       _currentUser = AppUser(
         id: '1',
@@ -67,6 +69,7 @@ class AuthService {
         role: user['role'] ?? 'user',
       );
       _isLoggedIn = true;
+      _notifyListeners();
       return true;
     }
     
@@ -77,13 +80,18 @@ class AuthService {
   Future<bool> signup(String name, String email, String password, String phone) async {
     await Future.delayed(Duration(seconds: 1));
     
+    // Normalize email
     final normalizedEmail = email.trim().toLowerCase();
     
+    // Check if email already exists
     if (_demoUsers.any((user) => 
         user['email'].toString().toLowerCase() == normalizedEmail)) {
+      print('❌ Email already exists: $email');
       return false;
     }
 
+    print('✅ Signup successful for: $email');
+    
     _currentUser = AppUser(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
@@ -92,20 +100,40 @@ class AuthService {
       addresses: [],
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
-      role: 'user',
+      role: 'user', // New users are always regular users
     );
     
     _isLoggedIn = true;
+    _notifyListeners();
     return true;
   }
 
   void logout() {
     _currentUser = null;
     _isLoggedIn = false;
+    _notifyListeners();
   }
 
   Future<bool> isAdmin() async {
     if (_currentUser == null) return false;
-    return _currentUser!.role == 'admin';
+    final isAdmin = _currentUser!.role == 'admin';
+    print('👑 Admin check: ${_currentUser!.email} -> $isAdmin');
+    return isAdmin;
+  }
+
+  final List<Function()> _listeners = [];
+
+  void addListener(Function() listener) {
+    _listeners.add(listener);
+  }
+
+  void removeListener(Function() listener) {
+    _listeners.remove(listener);
+  }
+
+  void _notifyListeners() {
+    for (var listener in _listeners) {
+      listener();
+    }
   }
 }

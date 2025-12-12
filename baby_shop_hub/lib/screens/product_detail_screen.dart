@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../utils/app_theme.dart';
-import '../services/cart_service.dart';
+import '../providers/cart_provider.dart'; 
+import 'package:provider/provider.dart'; 
+import 'dart:convert'; // Add this for base64 decoding
+import 'dart:typed_data'; // Add this for Uint8List
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -13,16 +16,141 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  final CartService _cartService = CartService();
   int _quantity = 1;
+  String? _selectedVariant;
+
+  @override
+  void initState() {
+    super.initState();
+    // Set default variant if available
+    if (widget.product.variants.isNotEmpty) {
+      _selectedVariant = widget.product.variants.first.id;
+    }
+  }
+
+  ProductVariant? get _selectedVariantObj {
+    if (_selectedVariant == null) return null;
+    return widget.product.variants.firstWhere(
+      (v) => v.id == _selectedVariant,
+      orElse: () => widget.product.variants.first,
+    );
+  }
+
+  // Method to decode base64 image
+  Uint8List? _decodeBase64Image(String base64String) {
+    if (!base64String.startsWith('data:image')) return null;
+    
+    try {
+      final String data = base64String.split(',').last;
+      return base64.decode(data);
+    } catch (e) {
+      print('Error decoding base64 image: $e');
+      return null;
+    }
+  }
+
+  // Widget to display product image
+  Widget _buildProductImage() {
+    if (widget.product.images.isEmpty) {
+      return Center(
+        child: Icon(
+          _getCategoryIcon(widget.product.category),
+          size: 120,
+          color: Colors.white,
+        ),
+      );
+    }
+
+    final String imageUrl = widget.product.images.first;
+    
+    // Check if it's a base64 image
+    if (imageUrl.startsWith('data:image')) {
+      final Uint8List? imageBytes = _decodeBase64Image(imageUrl);
+      if (imageBytes != null) {
+        return Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(30),
+              bottomRight: Radius.circular(30),
+            ),
+            child: Image.memory(
+              imageBytes,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) {
+                return Center(
+                  child: Icon(
+                    _getCategoryIcon(widget.product.category),
+                    size: 120,
+                    color: Colors.white,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    }
+    
+    // Regular network image
+    if (imageUrl.startsWith('http')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                color: Colors.white,
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Icon(
+                _getCategoryIcon(widget.product.category),
+                size: 120,
+                color: Colors.white,
+              ),
+            );
+          },
+        ),
+      );
+    }
+    
+    // Fallback to icon
+    return Center(
+      child: Icon(
+        _getCategoryIcon(widget.product.category),
+        size: 120,
+        color: Colors.white,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final cartProvider = Provider.of<CartProvider>(context);
+
     return Scaffold(
       backgroundColor: AppTheme.customColors['softCream'],
       appBar: AppBar(
-        title: Text('Product Details'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        title: Text(
+          'Product Details',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AppTheme.customColors['babyBlue'],
         elevation: 0,
         actions: [
           IconButton(
@@ -47,13 +175,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
               child: Stack(
                 children: [
-                  Center(
-                    child: Icon(
-                      _getCategoryIcon(widget.product.category),
-                      size: 120,
-                      color: Colors.white,
-                    ),
-                  ),
+                  // Product Image
+                  _buildProductImage(),
+                  
+                  // Rating Overlay
                   Positioned(
                     bottom: 16,
                     right: 16,
@@ -73,6 +198,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppTheme.customColors['textDark'],
+                              fontFamily: 'Poppins',
                             ),
                           ),
                           SizedBox(width: 4),
@@ -80,6 +206,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             '(${widget.product.reviewCount})',
                             style: TextStyle(
                               color: AppTheme.customColors['textLight'],
+                              fontFamily: 'Poppins',
                             ),
                           ),
                         ],
@@ -98,48 +225,158 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   // Product Name and Brand
                   Text(
                     widget.product.name,
-                    style: Theme.of(context).textTheme.displayMedium!.copyWith(
+                    style: TextStyle(
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
+                      color: AppTheme.customColors['textDark'],
                     ),
                   ),
                   SizedBox(height: 8),
                   Text(
                     'by ${widget.product.brand}',
-                    style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                    style: TextStyle(
+                      fontSize: 16,
                       color: AppTheme.customColors['textLight'],
+                      fontFamily: 'Poppins',
                     ),
                   ),
                   SizedBox(height: 16),
 
-                  // Price
-                  Text(
-                    '\$${widget.product.price.toStringAsFixed(2)}',
-                    style: Theme.of(context).textTheme.displayLarge!.copyWith(
-                      color: AppTheme.customColors['babyBlue'],
-                      fontWeight: FontWeight.bold,
+                  // Price Range (if multiple variants)
+                  if (widget.product.variants.length > 1)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Price Range:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        Text(
+                          '\$${widget.product.minPrice.toStringAsFixed(2)} - \$${widget.product.maxPrice.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 28,
+                            color: AppTheme.customColors['babyBlue'],
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (_selectedVariantObj != null)
+                    Text(
+                      '\$${_selectedVariantObj!.price.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 28,
+                        color: AppTheme.customColors['babyBlue'],
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
-                  ),
                   SizedBox(height: 16),
+
+                  // Variants Selection (if multiple variants)
+                  if (widget.product.variants.length > 1)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Select Variant:',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Poppins',
+                            color: AppTheme.customColors['textDark'],
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: widget.product.variants.map((variant) {
+                            return ChoiceChip(
+                              label: Text('${variant.size} - ${variant.color}'),
+                              selected: _selectedVariant == variant.id,
+                              onSelected: (selected) {
+                                setState(() {
+                                  _selectedVariant = variant.id;
+                                });
+                              },
+                              selectedColor: AppTheme.customColors['babyBlue'],
+                              backgroundColor: Colors.grey[200],
+                              labelStyle: TextStyle(
+                                color: _selectedVariant == variant.id 
+                                    ? Colors.white 
+                                    : Colors.black,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        SizedBox(height: 16),
+                      ],
+                    ),
 
                   // Description
                   Text(
                     'Description',
-                    style: Theme.of(context).textTheme.headlineMedium!.copyWith(
+                    style: TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.w600,
+                      fontFamily: 'Poppins',
+                      color: AppTheme.customColors['textDark'],
                     ),
                   ),
                   SizedBox(height: 8),
                   Text(
                     widget.product.description,
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[700],
+                      fontFamily: 'Poppins',
+                    ),
                   ),
                   SizedBox(height: 24),
+
+                  // Available Sizes (if multiple)
+                  if (widget.product.availableSizes.length > 1)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Available Sizes:',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Poppins',
+                            color: AppTheme.customColors['textDark'],
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: widget.product.availableSizes.map((size) {
+                            return Chip(
+                              label: Text(size),
+                              backgroundColor: AppTheme.customColors['softCream'],
+                            );
+                          }).toList(),
+                        ),
+                        SizedBox(height: 16),
+                      ],
+                    ),
 
                   // Quantity Selector
                   Text(
                     'Quantity',
-                    style: Theme.of(context).textTheme.headlineMedium!.copyWith(
+                    style: TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.w600,
+                      fontFamily: 'Poppins',
+                      color: AppTheme.customColors['textDark'],
                     ),
                   ),
                   SizedBox(height: 8),
@@ -162,7 +399,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           alignment: Alignment.center,
                           child: Text(
                             _quantity.toString(),
-                            style: Theme.of(context).textTheme.headlineMedium,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Poppins',
+                            ),
                           ),
                         ),
                         IconButton(
@@ -180,11 +421,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _buildBottomBar(cartProvider),
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(CartProvider cartProvider) {
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -203,9 +444,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Expanded(
             flex: 2,
             child: ElevatedButton.icon(
-              onPressed: _addToCart,
+              onPressed: () => _addToCart(cartProvider),
               icon: Icon(Icons.shopping_cart),
-              label: Text('Add to Cart'),
+              label: Text(
+                'Add to Cart',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.customColors['peach'],
                 foregroundColor: Colors.white,
@@ -221,8 +468,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Expanded(
             flex: 1,
             child: ElevatedButton(
-              onPressed: _buyNow,
-              child: Text('Buy Now'),
+              onPressed: () => _buyNow(cartProvider),
+              child: Text(
+                'Buy Now',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.customColors['babyBlue'],
                 foregroundColor: Colors.white,
@@ -250,30 +503,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
   }
 
-  void _addToCart() {
-    for (int i = 0; i < _quantity; i++) {
-      _cartService.addToCart(widget.product);
-    }
-    
+  void _addToCart(CartProvider cartProvider) {
+  cartProvider.addToCart(
+    widget.product,
+    selectedVariant: _selectedVariantObj, // PASS SELECTED VARIANT
+  );
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        '${widget.product.name} added to cart!',
+        style: TextStyle(fontFamily: 'Poppins'),
+      ),
+      backgroundColor: AppTheme.customColors['babyBlue'],
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+  );
+}
+
+  void _buyNow(CartProvider cartProvider) {
+    _addToCart(cartProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${widget.product.name} added to cart!'),
-        backgroundColor: AppTheme.customColors['babyBlue'],
-        behavior: SnackBarBehavior.floating,
+        content: Text(
+          'Checkout feature coming soon!',
+          style: TextStyle(fontFamily: 'Poppins'),
+        ),
+        backgroundColor: AppTheme.customColors['peach'],
       ),
     );
   }
 
-  void _buyNow() {
-    _addToCart();
-    // TODO: Navigate to checkout screen
-  }
-
   void _shareProduct() {
-    // TODO: Implement share functionality
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Share ${widget.product.name}'),
+        content: Text(
+          'Share ${widget.product.name}',
+          style: TextStyle(fontFamily: 'Poppins'),
+        ),
         backgroundColor: AppTheme.customColors['peach'],
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../services/auth_service.dart';
 
@@ -12,10 +13,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _authService = AuthService();
+  final _emailController = TextEditingController(); // EMPTY
+  final _passwordController = TextEditingController(); // EMPTY
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -27,13 +26,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-
     setState(() {
       _isLoading = true;
     });
 
-    final success = await _authService.login(
+    print('🔄 Attempting login...');
+    
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final success = await authService.login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
@@ -43,8 +43,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (success) {
-      Navigator.pushReplacementNamed(context, '/main');
+      print('✅ Login successful!');
+      
+      // Check if admin
+      final isAdmin = await authService.isAdmin();
+      if (isAdmin) {
+        Navigator.pushReplacementNamed(context, '/admin-dashboard');
+      } else {
+        Navigator.pushReplacementNamed(context, '/main');
+      }
     } else {
+      print('❌ Login failed');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Invalid email or password'),
@@ -61,195 +70,168 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Back Button
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.arrow_back),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back Button
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.arrow_back),
+                color: AppTheme.customColors['babyBlue'],
+              ),
+              SizedBox(height: 20),
+
+              // Welcome Text
+              Text(
+                'Welcome Back!',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
                   color: AppTheme.customColors['babyBlue'],
+                  fontFamily: 'Poppins',
                 ),
-                SizedBox(height: 20),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Sign in to continue shopping',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              SizedBox(height: 40),
 
-                // Welcome Text
-                Text(
-                  'Welcome Back!',
-                  style: Theme.of(context).textTheme.displayLarge!.copyWith(
-                    color: AppTheme.customColors['babyBlue'],
+              // Email Field - EMPTY
+              Text(
+                'Email',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              SizedBox(height: 8),
+              TextField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  hintText: 'Enter your email',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Sign in to continue shopping for your little one',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                SizedBox(height: 40),
+              ),
+              SizedBox(height: 20),
 
-                // Email Field
-                Text(
-                  'Email',
-                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              // Password Field - EMPTY
+              Text(
+                'Password',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Poppins',
                 ),
-                SizedBox(height: 8),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 20),
-
-                // Password Field
-                Text(
-                  'Password',
-                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 8),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    hintText: 'Enter your password',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 8),
-
-                // Forgot Password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
+              ),
+              SizedBox(height: 8),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  hintText: 'Enter your password',
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
                     onPressed: () {
-                      // TODO: Implement forgot password
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Forgot password feature coming soon!'),
-                          backgroundColor: AppTheme.customColors['peach'],
-                        ),
-                      );
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
                     },
-                    child: Text('Forgot Password?'),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: Icon(Icons.lock_outlined),
+                ),
+              ),
+              SizedBox(height: 30),
+
+              // Login Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _login,
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'Sign In',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.customColors['babyBlue'],
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
-                SizedBox(height: 30),
+              ),
+              SizedBox(height: 20),
 
-                // Login Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    child: _isLoading
-                        ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Text(
-                            'Sign In',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.customColors['babyBlue'],
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              // Admin Login Option
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/admin-login');
+                  },
+                  child: Text(
+                    'Admin Login',
+                    style: TextStyle(
+                      color: AppTheme.customColors['peach'],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Switch to Signup
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Don't have an account? ",
+                    style: TextStyle(fontFamily: 'Poppins'),
+                  ),
+                  TextButton(
+                    onPressed: widget.onSwitchToSignup,
+                    child: Text(
+                      'Sign Up',
+                      style: TextStyle(
+                        color: AppTheme.customColors['babyBlue'],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        fontFamily: 'Poppins',
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 20),
-
-                // Demo Credentials
-                Card(
-                  color: AppTheme.customColors['yellow'],
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Demo Credentials:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.customColors['textDark'],
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Email: parent@example.com\nPassword: password123',
-                          style: TextStyle(
-                            color: AppTheme.customColors['textDark'],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
-
-                // Switch to Signup
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Don't have an account? ",
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    TextButton(
-                      onPressed: widget.onSwitchToSignup,
-                      child: Text(
-                        'Sign Up',
-                        style: TextStyle(
-                          color: AppTheme.customColors['peach'],
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

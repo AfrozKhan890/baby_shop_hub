@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
-import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -8,8 +7,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final AuthService _authService = AuthService();
-
   @override
   void initState() {
     super.initState();
@@ -17,14 +14,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   _navigateToHome() async {
-    await Future.delayed(Duration(seconds: 2), () {});
-
-    if (_authService.isLoggedIn) {
-      // YEH LINE CHECK KAREN - /main par jana chahiye
-      Navigator.pushReplacementNamed(context, '/main');
-    } else {
-      Navigator.pushReplacementNamed(context, '/login');
-    }
+    await Future.delayed(Duration(seconds: 2));
+    
+    Navigator.pushReplacementNamed(context, '/login'); 
   }
 
   @override
@@ -39,15 +31,20 @@ class _SplashScreenState extends State<SplashScreen> {
             SizedBox(height: 20),
             Text(
               'BabyShopHub',
-              style: Theme.of(context).textTheme.displayLarge!.copyWith(
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
                 color: Colors.white,
+                fontFamily: 'Poppins',
               ),
             ),
             SizedBox(height: 10),
             Text(
               'For Loving Parents',
-              style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+              style: TextStyle(
+                fontSize: 16,
                 color: Colors.white70,
+                fontFamily: 'Poppins',
               ),
             ),
             SizedBox(height: 30),

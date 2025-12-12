@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'address_model.dart';
 
 class AppUser {
   final String id;
@@ -8,87 +9,51 @@ class AppUser {
   final List<Address> addresses;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String role;
 
   AppUser({
     required this.id,
     required this.name,
     required this.email,
     required this.phone,
-    this.addresses = const [],
+    required this.addresses,
     required this.createdAt,
     required this.updatedAt,
-  });
-
-  // Convert to Firestore
-  Map<String, dynamic> toFirestore() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'addresses': addresses.map((address) => address.toMap()).toList(),
-      'createdAt': createdAt.millisecondsSinceEpoch,
-      'updatedAt': updatedAt.millisecondsSinceEpoch,
-    };
-  }
-
-  // Create from Firestore
-  factory AppUser.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    return AppUser(
-      id: doc.id,
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      phone: data['phone'] ?? '',
-      addresses: (data['addresses'] as List? ?? [])
-          .map((address) => Address.fromMap(address))
-          .toList(),
-      createdAt: DateTime.fromMillisecondsSinceEpoch(data['createdAt'] ?? 0),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(data['updatedAt'] ?? 0),
-    );
-  }
-}
-
-class Address {
-  final String id;
-  final String name;
-  final String street;
-  final String city;
-  final String state;
-  final String zipCode;
-  final bool isDefault;
-
-  Address({
-    required this.id,
-    required this.name,
-    required this.street,
-    required this.city,
-    required this.state,
-    required this.zipCode,
-    this.isDefault = false,
+    this.role = 'user',
   });
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'street': street,
-      'city': city,
-      'state': state,
-      'zipCode': zipCode,
-      'isDefault': isDefault,
+      'email': email,
+      'phone': phone,
+      'addresses': addresses.map((addr) => addr.toMap()).toList(),
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+      'role': role,
     };
   }
 
-  factory Address.fromMap(Map<String, dynamic> map) {
-    return Address(
-      id: map['id'],
-      name: map['name'],
-      street: map['street'],
-      city: map['city'],
-      state: map['state'],
-      zipCode: map['zipCode'],
-      isDefault: map['isDefault'] ?? false,
+  factory AppUser.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    
+    Timestamp? createdAt = data['createdAt'];
+    Timestamp? updatedAt = data['updatedAt'];
+
+    return AppUser(
+      id: data['id'] ?? doc.id,
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      phone: data['phone'] ?? '',
+      addresses: (data['addresses'] as List? ?? [])
+          .map((addr) => Address.fromMap(addr))
+          .toList(),
+      createdAt: createdAt?.toDate() ?? DateTime.now(),
+      updatedAt: updatedAt?.toDate() ?? DateTime.now(),
+      role: data['role'] ?? 'user',
     );
   }
+
+  bool get isAdmin => role == 'admin';
 }

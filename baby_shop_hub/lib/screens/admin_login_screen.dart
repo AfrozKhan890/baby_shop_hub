@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
-import '../services/admin_service.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   @override
@@ -8,48 +7,21 @@ class AdminLoginScreen extends StatefulWidget {
 }
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'admin@babyshophub.com');
+  final _emailController = TextEditingController(text: 'admin@example.com');
   final _passwordController = TextEditingController(text: 'admin123');
-  final AdminService _adminService = AdminService();
-  bool _isLoading = false;
   bool _obscurePassword = true;
-  String _errorMessage = '';
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    try {
-      // In production, use Firebase Auth
-      // For demo, we'll use a simple check
-      if (_emailController.text == 'admin@babyshophub.com' && 
-          _passwordController.text == 'admin123') {
-        Navigator.pushReplacementNamed(context, '/admin_dashboard');
-      } else {
-        setState(() {
-          _errorMessage = 'Invalid admin credentials';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Login failed: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+  void _login() {
+    if (_emailController.text == 'admin@example.com' && 
+        _passwordController.text == 'admin123') {
+      Navigator.pushReplacementNamed(context, '/admin-dashboard');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid admin credentials'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -57,129 +29,155 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.customColors['softCream'],
-      body: Center(
-        child: Container(
-          constraints: BoxConstraints(maxWidth: 400),
+      body: SafeArea(
+        child: SingleChildScrollView(
           padding: EdgeInsets.all(24),
-          child: Card(
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Logo
-                    Icon(
-                      Icons.admin_panel_settings,
-                      size: 60,
-                      color: AppTheme.customColors['babyBlue'],
+          child: Column(
+            children: [
+              // Back Button
+              Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(Icons.arrow_back),
+                  color: AppTheme.customColors['babyBlue'],
+                ),
+              ),
+              SizedBox(height: 40),
+              
+              // Admin Icon
+              Icon(
+                Icons.admin_panel_settings,
+                size: 80,
+                color: AppTheme.customColors['babyBlue'],
+              ),
+              SizedBox(height: 20),
+              
+              // Title
+              Text(
+                'Admin Portal',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.customColors['babyBlue'],
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Access the admin dashboard',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              SizedBox(height: 40),
+              
+              // Login Form
+              Container(
+                padding: EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
                     ),
-                    SizedBox(height: 20),
-                    
-                    // Title
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Email Field
                     Text(
-                      'Admin Portal',
-                      style: Theme.of(context).textTheme.displayMedium!.copyWith(
-                        color: AppTheme.customColors['textDark'],
-                        fontWeight: FontWeight.bold,
+                      'Admin Email',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Poppins',
                       ),
                     ),
                     SizedBox(height: 8),
-                    Text(
-                      'BabyShopHub Administration',
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        color: AppTheme.customColors['textLight'],
-                      ),
-                    ),
-                    SizedBox(height: 32),
-
-                    // Error Message
-                    if (_errorMessage.isNotEmpty)
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error, color: Colors.red, size: 20),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _errorMessage,
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_errorMessage.isNotEmpty) SizedBox(height: 16),
-
-                    // Email Field
-                    TextFormField(
+                    TextField(
                       controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: 'Admin Email',
-                        prefixIcon: Icon(Icons.email_outlined),
+                        hintText: 'Enter admin email',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: Icon(Icons.admin_panel_settings_outlined),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter admin email';
-                        }
-                        return null;
-                      },
                     ),
                     SizedBox(height: 20),
-
+                    
                     // Password Field
-                    TextFormField(
+                    Text(
+                      'Password',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        hintText: 'Enter password',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
                         prefixIcon: Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword 
-                                ? Icons.visibility 
-                                : Icons.visibility_off,
-                          ),
+                          icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
                           onPressed: () {
                             setState(() {
                               _obscurePassword = !_obscurePassword;
                             });
                           },
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    SizedBox(height: 30),
+                    
+                    // Login Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _login,
+                        child: Text(
+                          'Login as Admin',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.customColors['babyBlue'],
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter password';
-                        }
-                        return null;
-                      },
                     ),
-                    SizedBox(height: 8),
-
-                    // Demo Credentials
+                    SizedBox(height: 16),
+                    
+                    // Demo Info
                     Container(
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.customColors['yellow'],
+                        color: Colors.yellow[100],
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,62 +186,25 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             'Demo Admin Credentials:',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.customColors['textDark'],
+                              fontFamily: 'Poppins',
                             ),
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Email: admin@babyshophub.com\nPassword: admin123',
-                            style: TextStyle(
-                              color: AppTheme.customColors['textDark'],
-                            ),
+                            'Email: admin@example.com',
+                            style: TextStyle(fontFamily: 'Poppins'),
+                          ),
+                          Text(
+                            'Password: admin123',
+                            style: TextStyle(fontFamily: 'Poppins'),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 24),
-
-                    // Login Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
-                        child: _isLoading
-                            ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : Text(
-                                'Login as Admin',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.customColors['babyBlue'],
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 16),
-
-                    // Back to User App
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: Text('Back to User App'),
-                    ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),

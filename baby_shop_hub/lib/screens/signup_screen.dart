@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../services/auth_service.dart';
 
@@ -17,7 +18,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _authService = AuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -37,7 +37,8 @@ class _SignupScreenState extends State<SignupScreen> {
       _isLoading = true;
     });
 
-    final success = await _authService.signup(
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final success = await authService.signup(
       _nameController.text.trim(),
       _emailController.text.trim(),
       _passwordController.text.trim(),
@@ -83,22 +84,31 @@ class _SignupScreenState extends State<SignupScreen> {
                 // Create Account Text
                 Text(
                   'Create Account',
-                  style: Theme.of(context).textTheme.displayLarge!.copyWith(
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
                     color: AppTheme.customColors['babyBlue'],
+                    fontFamily: 'Poppins',
                   ),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'Sign up to start shopping for your baby',
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[700],
+                    fontFamily: 'Poppins',
+                  ),
                 ),
                 SizedBox(height: 40),
 
                 // Name Field
                 Text(
                   'Full Name',
-                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
                   ),
                 ),
                 SizedBox(height: 8),
@@ -107,6 +117,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   decoration: InputDecoration(
                     hintText: 'Enter your full name',
                     prefixIcon: Icon(Icons.person_outline),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -120,8 +135,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 // Email Field
                 Text(
                   'Email',
-                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
                   ),
                 ),
                 SizedBox(height: 8),
@@ -131,6 +148,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   decoration: InputDecoration(
                     hintText: 'Enter your email',
                     prefixIcon: Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -147,8 +169,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 // Phone Field
                 Text(
                   'Phone Number',
-                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
                   ),
                 ),
                 SizedBox(height: 8),
@@ -158,6 +182,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   decoration: InputDecoration(
                     hintText: 'Enter your phone number',
                     prefixIcon: Icon(Icons.phone_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -171,8 +200,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 // Password Field
                 Text(
                   'Password',
-                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    fontFamily: 'Poppins',
                   ),
                 ),
                 SizedBox(height: 8),
@@ -192,6 +223,11 @@ class _SignupScreenState extends State<SignupScreen> {
                         });
                       },
                     ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -221,7 +257,10 @@ class _SignupScreenState extends State<SignupScreen> {
                           )
                         : Text(
                             'Create Account',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontFamily: 'Poppins',
+                            ),
                           ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.customColors['peach'],
@@ -241,7 +280,10 @@ class _SignupScreenState extends State<SignupScreen> {
                   children: [
                     Text(
                       "Already have an account? ",
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontFamily: 'Poppins',
+                      ),
                     ),
                     TextButton(
                       onPressed: widget.onSwitchToLogin,
@@ -250,6 +292,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         style: TextStyle(
                           color: AppTheme.customColors['babyBlue'],
                           fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          fontFamily: 'Poppins',
                         ),
                       ),
                     ),
