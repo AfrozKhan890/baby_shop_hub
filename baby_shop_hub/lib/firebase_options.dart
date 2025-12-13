@@ -1,5 +1,3 @@
-// lib/firebase_options.dart
-
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
@@ -38,7 +36,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: "AIzaSyCsUh8MFpL2XE_OOCYc4TrquaWL4BKNhlQ",
-    authDomain: "babyshophub-6123b.firebaseapp.com",
+    authDomain: "babyshophub-6123b.firebaseapp.com",  
     projectId: "babyshophub-6123b",
     storageBucket: "babyshophub-6123b.firebasestorage.app",
     messagingSenderId: "889317806404",

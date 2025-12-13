@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onSwitchToSignup;
@@ -13,10 +14,15 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(); // EMPTY
-  final _passwordController = TextEditingController(); // EMPTY
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -26,41 +32,102 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    // Basic validation
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please fill all fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
-    print('🔄 Attempting login...');
+    print('🔄 ===== UI LOGIN STARTED =====');
+    print('🔄 Email: ${_emailController.text}');
     
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final success = await authService.login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (success) {
-      print('✅ Login successful!');
-      
-      // Check if admin
-      final isAdmin = await authService.isAdmin();
-      if (isAdmin) {
-        Navigator.pushReplacementNamed(context, '/admin-dashboard');
-      } else {
-        Navigator.pushReplacementNamed(context, '/main');
-      }
-    } else {
-      print('❌ Login failed');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Invalid email or password'),
-          backgroundColor: Colors.red,
-        ),
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final success = await authService.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (success) {
+        print('✅ UI: Login successful!');
+        
+        // Check if admin
+        final isAdmin = await authService.isAdmin();
+        print('🔄 User is admin: $isAdmin');
+        
+        if (isAdmin) {
+          Navigator.pushReplacementNamed(context, '/admin-dashboard');
+        } else {
+          Navigator.pushReplacementNamed(context, '/main');
+        }
+      } else {
+        _showError('Login failed. Please try again.');
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      String errorMessage;
+      switch (e.code) {
+        case 'invalid-email':
+          errorMessage = 'Invalid email address format';
+          break;
+        case 'user-disabled':
+          errorMessage = 'This account has been disabled';
+          break;
+        case 'user-not-found':
+          errorMessage = 'No account found with this email';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Incorrect password. Please try again.';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Invalid email or password. Please check your credentials.';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many login attempts. Try again later.';
+          break;
+        case 'network-request-failed':
+          errorMessage = 'No internet connection. Check your network.';
+          break;
+        case 'empty-fields':
+          errorMessage = 'Please enter both email and password';
+          break;
+        default:
+          errorMessage = 'Login failed: ${e.message ?? "Unknown error"}';
+          print('🔄 Firebase Error Code: ${e.code}');
+          print('🔄 Firebase Error Message: ${e.message}');
+      }
+      
+      _showError(errorMessage);
+      print('❌ UI: Login error: ${e.code}');
+    } catch (e, stackTrace) {
+      setState(() {
+        _isLoading = false;
+      });
+      print('❌ UI: General error: $e');
+      print('❌ StackTrace: $stackTrace');
+      _showError('An unexpected error occurred: $e');
     }
+  }
+void _clearFields() {
+    _emailController.clear();
+    _passwordController.clear();
+    setState(() {});
   }
 
   @override
@@ -102,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               SizedBox(height: 40),
 
-              // Email Field - EMPTY
+              // Email Field
               Text(
                 'Email',
                 style: TextStyle(
@@ -112,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               SizedBox(height: 8),
-              TextField(
+              TextFormField(
                 controller: _emailController,
                 decoration: InputDecoration(
                   hintText: 'Enter your email',
@@ -122,11 +189,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   filled: true,
                   fillColor: Colors.white,
                   prefixIcon: Icon(Icons.email_outlined),
+                  suffixIcon: _emailController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _emailController.clear();
+                            setState(() {});
+                          },
+                        )
+                      : null,
                 ),
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() {}),
               ),
               SizedBox(height: 20),
 
-              // Password Field - EMPTY
+              // Password Field
               Text(
                 'Password',
                 style: TextStyle(
@@ -136,18 +214,31 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               SizedBox(height: 8),
-              TextField(
+              TextFormField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: 'Enter your password',
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      if (_passwordController.text.isNotEmpty)
+                        IconButton(
+                          icon: Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _passwordController.clear();
+                            setState(() {});
+                          },
+                        ),
+                    ],
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -156,8 +247,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   fillColor: Colors.white,
                   prefixIcon: Icon(Icons.lock_outlined),
                 ),
+                onChanged: (_) => setState(() {}),
               ),
-              SizedBox(height: 30),
+              
+              // Forgot Password
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    _showForgotPasswordDialog();
+                  },
+                  child: Text(
+                    'Forgot Password?',
+                    style: TextStyle(
+                      color: AppTheme.customColors['babyBlue'],
+                    ),
+                  ),
+                ),
+              ),
+              
+              SizedBox(height: 20),
 
               // Login Button
               SizedBox(
@@ -192,22 +301,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               SizedBox(height: 20),
 
-              // Admin Login Option
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/admin-login');
-                  },
-                  child: Text(
-                    'Admin Login',
-                    style: TextStyle(
-                      color: AppTheme.customColors['peach'],
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-
               // Switch to Signup
               SizedBox(height: 20),
               Row(
@@ -234,6 +327,59 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Reset Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Enter your email to reset password:'),
+            SizedBox(height: 10),
+            TextFormField(
+              decoration: InputDecoration(
+                hintText: 'Email',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Implement password reset
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Password reset email sent'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              Navigator.pop(context);
+            },
+            child: Text('Send Reset Link'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 4),
       ),
     );
   }
