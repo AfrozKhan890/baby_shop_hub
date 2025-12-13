@@ -59,7 +59,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<AuthService>(
           create: (_) => AuthService(),
-          lazy: false, // Important for AuthService
+          lazy: false,
         ),
         ChangeNotifierProvider<ProductProvider>(
           create: (_) => ProductProvider(),
@@ -87,7 +87,7 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         initialRoute: '/',
         routes: {
-          '/': (context) => AuthWrapper(), 
+          '/': (context) => AuthWrapper(),
           '/onboarding': (context) => OnboardingScreen(),
           '/login': (context) => LoginScreen(
             onSwitchToSignup: () => Navigator.pushReplacementNamed(context, '/signup'),
@@ -104,7 +104,6 @@ class MyApp extends StatelessWidget {
             if (args is Product) {
               return ProductDetailScreen(product: args);
             }
-            // Fallback product for safety
             return ProductDetailScreen(
               product: Product(
                 id: '0',
@@ -146,7 +145,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// main.dart mein AuthWrapper class ko yeh se replace karo:
+// ✅ Corrected AuthWrapper
 class AuthWrapper extends StatefulWidget {
   @override
   _AuthWrapperState createState() => _AuthWrapperState();
@@ -154,7 +153,6 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isInitialized = false;
-  bool _showOnboarding = true; // Change this based on SharedPreferences
 
   @override
   void initState() {
@@ -193,74 +191,24 @@ class _AuthWrapperState extends State<AuthWrapper> {
         future: authService.isAdmin(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return SplashScreen(); // Loading while checking admin status
+            return SplashScreen();
           }
           
           if (snapshot.hasError) {
             print('❌ Admin check error: ${snapshot.error}');
-            return MainScreen(); // Default to main screen on error
+            return MainScreen();
           }
           
           if (snapshot.data == true) {
-            return AdminDashboard(); // Admin dashboard
+            return AdminDashboard();
           } else {
-            return MainScreen(); // Regular user main screen
+            return MainScreen();
           }
         },
       );
     } else {
-      // User logged in nahi hai
-      if (_showOnboarding) {
-        return OnboardingScreen(
-          onComplete: () {
-            setState(() {
-              _showOnboarding = false;
-            });
-            // TODO: Save to SharedPreferences
-          },
-        );
-      } else {
-        return LoginScreen(
-          onSwitchToSignup: () {
-            Navigator.pushReplacementNamed(context, '/signup');
-          },
-        );
-      }
+      // ✅ Simple: Direct OnboardingScreen show karo
+      return OnboardingScreen();
     }
   }
 }
-  @override
-  Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    
-    // Agar user already logged in hai
-    if (authService.isLoggedIn) {
-      return FutureBuilder<bool>(
-        future: authService.isAdmin(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return SplashScreen(); // Loading screen
-          }
-          if (snapshot.data == true) {
-            return AdminDashboard(); // Admin dashboard
-          } else {
-            return MainScreen(); // User main screen
-          }
-        },
-      );
-    } else {
-      // Agar user logged in nahi hai to SplashScreen dekhao
-      return FutureBuilder(
-        future: Future.delayed(Duration(milliseconds: 500)), // Small delay
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return SplashScreen();
-          }
-          
-          // Check karo ki user onboarding dekha hai ya nahi
-          // TODO: SharedPreferences se check karo
-          return OnboardingScreen(); // Ya fir LoginScreen()
-        },
-      );
-    }
-  }
