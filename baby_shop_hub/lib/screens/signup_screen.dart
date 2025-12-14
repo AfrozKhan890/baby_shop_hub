@@ -102,161 +102,119 @@ class _SignupScreenState extends State<SignupScreen> {
     return null;
   }
 
- Future<void> _signup() async {
-  // Form validation check
-  if (!_formKey.currentState!.validate()) {
-    print('❌ Form validation failed');
-    
-    // Show which field failed
-    String errorFields = '';
-    if (_validateName(_nameController.text) != null) errorFields += 'Name, ';
-    if (_validateEmail(_emailController.text) != null) errorFields += 'Email, ';
-    if (_validatePhone(_phoneController.text) != null) errorFields += 'Phone, ';
-    if (_validatePassword(_passwordController.text) != null) errorFields += 'Password, ';
-    if (_validateConfirmPassword(_confirmPasswordController.text) != null) errorFields += 'Confirm Password, ';
-    
-    if (errorFields.isNotEmpty) {
-      errorFields = errorFields.substring(0, errorFields.length - 2);
+  Future<void> _signup() async {
+    if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please fix errors in: $errorFields'),
+          content: Text('Please fix all validation errors'),
           backgroundColor: Colors.orange,
           duration: Duration(seconds: 3),
         ),
       );
+      return;
     }
-    return;
-  }
 
-  setState(() {
-    _isLoading = true;
-  });
-
-  print('🔄 ===== SIGNUP INITIATED FROM UI =====');
-  print('🔄 Name: ${_nameController.text}');
-  print('🔄 Email: ${_emailController.text}');
-  print('🔄 Phone: ${_phoneController.text}');
-  print('🔄 Password: ${_passwordController.text}');
-  
-  try {
-    final authService = Provider.of<AuthService>(context, listen: false);
+    setState(() {
+      _isLoading = true;
+    });
     
-    final success = await authService.signup(
-      _nameController.text.trim(),
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-      _phoneController.text.trim(),
-    );
-
-    if (success) {
-      print('✅ Signup successful in UI');
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Account created successfully! Check your email for verification.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
+      final success = await authService.signup(
+        _nameController.text.trim(),
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        _phoneController.text.trim(),
       );
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Account created successfully! Check your email for verification.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        
+        await Future.delayed(Duration(seconds: 2));
+        Navigator.pushReplacementNamed(context, '/main');
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Signup failed. User not created.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
       
-      await Future.delayed(Duration(seconds: 2));
-      Navigator.pushReplacementNamed(context, '/main');
-    } else {
+    } on FirebaseAuthException catch (e) {
       setState(() {
         _isLoading = false;
       });
+      
+      String errorMessage;
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMessage = 'This email is already registered. Please use another email.';
+          break;
+        case 'invalid-email':
+          errorMessage = 'Invalid email format. Example: user@example.com';
+          break;
+        case 'weak-password':
+          errorMessage = 'Password must have:\n• At least 8 characters\n• 1 uppercase letter\n• 1 lowercase letter\n• 1 number (0-9)\n• 1 special character (@, %, *)';
+          break;
+        case 'invalid-name':
+          errorMessage = 'Name can only contain letters and spaces.';
+          break;
+        case 'invalid-phone':
+          errorMessage = 'Phone number must be 10-15 digits. Example: 03001234567';
+          break;
+        case 'network-request-failed':
+          errorMessage = 'No internet connection. Please check your network.';
+          break;
+        case 'too-many-requests':
+          errorMessage = 'Too many attempts. Try again in 5 minutes.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'Email/password signup is disabled. Contact support.';
+          break;
+        default:
+          errorMessage = 'Signup failed: ${e.message ?? "Unknown error"}';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Signup failed. User not created.'),
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      String errorMessage = 'An unexpected error occurred. Please try again.';
+      if (e.toString().contains('firestore')) {
+        errorMessage = 'Failed to save user data. Please try again.';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'Network error. Check your internet connection.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 3),
         ),
       );
     }
-    
-  } on FirebaseAuthException catch (e) {
-    setState(() {
-      _isLoading = false;
-    });
-    
-    String errorMessage;
-    switch (e.code) {
-      case 'email-already-in-use':
-        errorMessage = 'This email is already registered. Please use another email.';
-        break;
-      case 'invalid-email':
-        errorMessage = 'Invalid email format. Example: user@example.com';
-        break;
-      case 'weak-password':
-        errorMessage = 'Password must have:\n• At least 8 characters\n• 1 uppercase letter\n• 1 lowercase letter\n• 1 number (0-9)\n• 1 special character (@, %, *)';
-        break;
-      case 'invalid-name':
-        errorMessage = 'Name can only contain letters and spaces.';
-        break;
-      case 'invalid-phone':
-        errorMessage = 'Phone number must be 10-15 digits. Example: 03001234567';
-        break;
-      case 'network-request-failed':
-        errorMessage = 'No internet connection. Please check your network.';
-        break;
-      case 'too-many-requests':
-        errorMessage = 'Too many attempts. Try again in 5 minutes.';
-        break;
-      case 'operation-not-allowed':
-        errorMessage = 'Email/password signup is disabled. Contact support.';
-        break;
-      default:
-        errorMessage = 'Signup failed: ${e.message ?? "Unknown error"}';
-        print('🔄 Firebase Error Code: ${e.code}');
-        print('🔄 Firebase Error Message: ${e.message}');
-    }
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(errorMessage),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 4),
-      ),
-    );
-    
-  } catch (e, stackTrace) {
-    setState(() {
-      _isLoading = false;
-    });
-    
-    print('❌ UI: General error: $e');
-    print('❌ Stack Trace: $stackTrace');
-    
-    String errorMessage = 'An unexpected error occurred. Please try again.';
-    if (e.toString().contains('firestore')) {
-      errorMessage = 'Failed to save user data. Please try again.';
-    } else if (e.toString().contains('network')) {
-      errorMessage = 'Network error. Check your internet connection.';
-    } else if (e.toString().contains('permission')) {
-      errorMessage = 'Permission denied. Contact support.';
-    }
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(errorMessage),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 3),
-      ),
-    );
-  }
-}
-  void _testSignup() {
-    _nameController.text = 'Test User';
-    _emailController.text = 'test${DateTime.now().millisecondsSinceEpoch}@test.com';
-    _passwordController.text = 'Test@1234';
-    _confirmPasswordController.text = 'Test@1234';
-    _phoneController.text = '03001234567';
-    
-    _formKey.currentState?.validate();
-    
-    print('✅ Test data filled');
-    print('📝 Email: ${_emailController.text}');
-    print('📝 Password: ${_passwordController.text}');
   }
 
   @override
@@ -271,22 +229,10 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.arrow_back),
-                      color: AppTheme.customColors['babyBlue'],
-                    ),
-                    Spacer(),
-                    if (!_isLoading)
-                      IconButton(
-                        onPressed: _testSignup,
-                        icon: Icon(Icons.bug_report),
-                        color: Colors.orange,
-                        tooltip: 'Fill test data',
-                      ),
-                  ],
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(Icons.arrow_back),
+                  color: AppTheme.customColors['babyBlue'],
                 ),
                 SizedBox(height: 20),
 

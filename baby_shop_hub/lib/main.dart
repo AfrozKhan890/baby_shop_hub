@@ -36,16 +36,9 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  try {
-    // Initialize Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    print('✅ Firebase initialized successfully');
-  } catch (e) {
-    print('❌ Firebase initialization error: $e');
-    // Continue with demo mode even if Firebase fails
-  }
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   
   runApp(MyApp());
 }
@@ -145,7 +138,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ✅ Corrected AuthWrapper
 class AuthWrapper extends StatefulWidget {
   @override
   _AuthWrapperState createState() => _AuthWrapperState();
@@ -162,7 +154,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _initializeApp() async {
     try {
-      // Check if user is logged in
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.checkCurrentUser();
       
@@ -170,7 +161,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _isInitialized = true;
       });
     } catch (e) {
-      print('❌ AuthWrapper initialization error: $e');
       setState(() {
         _isInitialized = true;
       });
@@ -186,7 +176,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final authService = Provider.of<AuthService>(context);
     
     if (authService.isLoggedIn) {
-      // User logged in hai - check if admin or regular user
       return FutureBuilder<bool>(
         future: authService.isAdmin(),
         builder: (context, snapshot) {
@@ -195,7 +184,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           }
           
           if (snapshot.hasError) {
-            print('❌ Admin check error: ${snapshot.error}');
             return MainScreen();
           }
           
@@ -207,7 +195,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
         },
       );
     } else {
-      // ✅ Simple: Direct OnboardingScreen show karo
       return OnboardingScreen();
     }
   }

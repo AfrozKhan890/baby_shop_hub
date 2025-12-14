@@ -20,11 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -32,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    // Basic validation
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -46,9 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _isLoading = true;
     });
-
-    print('🔄 ===== UI LOGIN STARTED =====');
-    print('🔄 Email: ${_emailController.text}');
     
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -62,11 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (success) {
-        print('✅ UI: Login successful!');
-        
-        // Check if admin
         final isAdmin = await authService.isAdmin();
-        print('🔄 User is admin: $isAdmin');
         
         if (isAdmin) {
           Navigator.pushReplacementNamed(context, '/admin-dashboard');
@@ -109,25 +96,25 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
         default:
           errorMessage = 'Login failed: ${e.message ?? "Unknown error"}';
-          print('🔄 Firebase Error Code: ${e.code}');
-          print('🔄 Firebase Error Message: ${e.message}');
       }
       
       _showError(errorMessage);
-      print('❌ UI: Login error: ${e.code}');
-    } catch (e, stackTrace) {
+    } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      print('❌ UI: General error: $e');
-      print('❌ StackTrace: $stackTrace');
-      _showError('An unexpected error occurred: $e');
+      _showError('An unexpected error occurred');
     }
   }
-void _clearFields() {
-    _emailController.clear();
-    _passwordController.clear();
-    setState(() {});
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -140,7 +127,6 @@ void _clearFields() {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Back Button
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: Icon(Icons.arrow_back),
@@ -148,7 +134,6 @@ void _clearFields() {
               ),
               SizedBox(height: 20),
 
-              // Welcome Text
               Text(
                 'Welcome Back!',
                 style: TextStyle(
@@ -169,7 +154,6 @@ void _clearFields() {
               ),
               SizedBox(height: 40),
 
-              // Email Field
               Text(
                 'Email',
                 style: TextStyle(
@@ -204,7 +188,6 @@ void _clearFields() {
               ),
               SizedBox(height: 20),
 
-              // Password Field
               Text(
                 'Password',
                 style: TextStyle(
@@ -250,7 +233,6 @@ void _clearFields() {
                 onChanged: (_) => setState(() {}),
               ),
               
-              // Forgot Password
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -268,7 +250,6 @@ void _clearFields() {
               
               SizedBox(height: 20),
 
-              // Login Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -301,7 +282,6 @@ void _clearFields() {
               ),
               SizedBox(height: 20),
 
-              // Switch to Signup
               SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -358,7 +338,6 @@ void _clearFields() {
           ),
           ElevatedButton(
             onPressed: () {
-              // TODO: Implement password reset
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Password reset email sent'),
@@ -370,16 +349,6 @@ void _clearFields() {
             child: Text('Send Reset Link'),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 4),
       ),
     );
   }

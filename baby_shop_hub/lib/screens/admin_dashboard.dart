@@ -6,7 +6,7 @@ import '../data/dummy_data.dart';
 import '../utils/app_theme.dart';
 import 'dart:typed_data';
 import 'dart:convert';
-
+import 'admin_users_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   @override
@@ -1903,19 +1903,9 @@ class OrdersTab extends StatelessWidget {
 }
 
 class UsersTab extends StatelessWidget {
-  @override
+   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Users Management\nComing Soon!',
-        style: TextStyle(
-          fontSize: 20,
-          color: Colors.grey[500],
-          fontFamily: 'Poppins',
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
+    return AdminUsersScreen(); // ✅ Yahi change karo
   }
 }
 

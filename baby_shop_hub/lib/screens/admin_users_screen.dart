@@ -1,3 +1,4 @@
+// screens/admin_users_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,17 +7,16 @@ import '../services/auth_service.dart';
 import '../models/user_model.dart';
 
 class AdminUsersScreen extends StatefulWidget {
+  const AdminUsersScreen({Key? key}) : super(key: key);
+
   @override
   _AdminUsersScreenState createState() => _AdminUsersScreenState();
 }
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   List<AppUser> _users = [];
-  List<AppUser> _filteredUsers = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String _filterRole = 'All';
-  final List<String> _roles = ['All', 'user', 'admin'];
 
   @override
   void initState() {
@@ -27,63 +27,75 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Future<void> _loadUsers() async {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      if (authService.currentUser?.role != 'admin') {
-        throw Exception('Unauthorized access');
+      
+      // ✅ Check if user is admin
+      if (!authService.isLoggedIn || authService.currentUser?.role != 'admin') {
+        _showError('Unauthorized access');
+        return;
       }
 
+      // ✅ Get users from Firestore
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .orderBy('createdAt', descending: true)
           .get();
 
+      if (snapshot.docs.isEmpty) {
+        setState(() {
+          _users = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // ✅ Parse user data
+      List<AppUser> loadedUsers = [];
+      
+      for (var doc in snapshot.docs) {
+        try {
+          final user = AppUser.fromFirestore(doc);
+          loadedUsers.add(user);
+        } catch (e) {
+          print('Error parsing user ${doc.id}: $e');
+        }
+      }
+
       setState(() {
-        _users = snapshot.docs.map((doc) => AppUser.fromFirestore(doc)).toList();
-        _filteredUsers = _users;
+        _users = loadedUsers;
         _isLoading = false;
       });
+      
     } catch (e) {
       print('Error loading users: $e');
+      _showError('Failed to load users');
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to load users: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
-  void _filterUsers() {
-    List<AppUser> filtered = _users;
-
-    // Filter by search query
-    if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((user) {
-        return user.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-               user.email.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-               user.phone.contains(_searchQuery);
-      }).toList();
+  List<AppUser> get _filteredUsers {
+    if (_searchQuery.isEmpty) {
+      return _users;
     }
-
-    // Filter by role
-    if (_filterRole != 'All') {
-      filtered = filtered.where((user) => user.role == _filterRole).toList();
-    }
-
-    setState(() {
-      _filteredUsers = filtered;
-    });
+    
+    return _users.where((user) {
+      final searchLower = _searchQuery.toLowerCase();
+      return user.name.toLowerCase().contains(searchLower) ||
+             user.email.toLowerCase().contains(searchLower) ||
+             (user.phone?.toLowerCase() ?? '').contains(searchLower);
+    }).toList();
   }
 
   Future<void> _updateUserRole(AppUser user, String newRole) async {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       if (authService.currentUser?.role != 'admin') {
-        throw Exception('Unauthorized access');
+        _showError('Unauthorized access');
+        return;
       }
 
+      // ✅ Update in Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.id)
@@ -92,15 +104,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             'updatedAt': Timestamp.now(),
           });
 
-      // Update local list
+      // ✅ Update local list
       setState(() {
         final index = _users.indexWhere((u) => u.id == user.id);
         if (index != -1) {
-          _users[index] = user.copyWith(role: newRole);
+          _users[index] = _users[index].copyWith(role: newRole);
         }
       });
-
-      _filterUsers();
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -109,13 +119,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ),
       );
     } catch (e) {
-      print('Error updating user role: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update role: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error updating role: $e');
+      _showError('Failed to update role');
     }
   }
 
@@ -123,16 +128,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete User'),
+        title: const Text('Delete User'),
         content: Text('Are you sure you want to delete ${user.name}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
+            child: const Text(
               'Delete',
               style: TextStyle(color: Colors.red),
             ),
@@ -145,203 +150,335 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       try {
         final authService = Provider.of<AuthService>(context, listen: false);
         if (authService.currentUser?.role != 'admin') {
-          throw Exception('Unauthorized access');
+          _showError('Unauthorized access');
+          return;
         }
 
-        // Don't allow deleting yourself
+        // ✅ Prevent deleting own account
         if (user.id == authService.currentUser?.id) {
-          throw Exception('Cannot delete your own account');
+          _showError('Cannot delete your own account');
+          return;
         }
 
+        // ✅ Delete from Firestore
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.id)
             .delete();
 
-        // Update local list
+        // ✅ Remove from local list
         setState(() {
           _users.removeWhere((u) => u.id == user.id);
         });
-
-        _filterUsers();
         
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('User deleted successfully'),
             backgroundColor: Colors.green,
           ),
         );
       } catch (e) {
         print('Error deleting user: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete user: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showError('Failed to delete user');
       }
     }
+  }
+
+  void _viewUserDetails(AppUser user) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          children: [
+            // ✅ Draggable handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // ✅ Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'User Details',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            
+            Divider(height: 1),
+            
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✅ User Profile
+                    Center(
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: AppTheme.customColors['babyBlue'],
+                            child: Text(
+                              user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                              style: TextStyle(
+                                fontSize: 24,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            user.name,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            user.email,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    SizedBox(height: 30),
+                    
+                    // ✅ User Information
+                    _buildInfoRow('User ID', user.id),
+                    _buildInfoRow('Phone', user.phone ?? 'Not provided'),
+                    _buildInfoRow('Role', user.role.toUpperCase()),
+                    _buildInfoRow('Email Verified', user.isEmailVerified ? 'Verified ✅' : 'Not Verified ❌'),
+                    _buildInfoRow('Created', _formatDate(user.createdAt)),
+                    _buildInfoRow('Last Login', user.lastLogin != null ? _formatDate(user.lastLogin!) : 'Never'),
+                    
+                    SizedBox(height: 30),
+                    
+                    // ✅ Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              final newRole = user.role == 'admin' ? 'user' : 'admin';
+                              _updateUserRole(user, newRole);
+                              Navigator.pop(context);
+                            },
+                            icon: Icon(
+                              user.role == 'admin' ? Icons.person : Icons.admin_panel_settings,
+                              size: 20,
+                            ),
+                            label: Text(
+                              user.role == 'admin' ? 'Make User' : 'Make Admin',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: user.role == 'admin' ? Colors.green : Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: user.id == Provider.of<AuthService>(context, listen: false).currentUser?.id
+                                ? null
+                                : () {
+                                    Navigator.pop(context);
+                                    _deleteUser(user);
+                                  },
+                            icon: Icon(Icons.delete, size: 20),
+                            label: Text(
+                              'Delete',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildUserCard(AppUser user) {
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Poppins',
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        user.email,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          fontFamily: 'Poppins',
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: user.role == 'admin' 
-                      ? Colors.blue[50] 
-                      : Colors.green[50],
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: user.role == 'admin' 
-                        ? Colors.blue 
-                        : Colors.green,
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    user.role.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: user.role == 'admin' 
-                        ? Colors.blue 
-                        : Colors.green,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 12),
-            
-            // User Details
-            Row(
-              children: [
-                Icon(Icons.phone, size: 16, color: Colors.grey[600]),
-                SizedBox(width: 8),
-                Text(
-                  user.phone,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            
-            Row(
-              children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                SizedBox(width: 8),
-                Text(
-                  'Joined: ${_formatDate(user.createdAt)}',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            
-            Row(
-              children: [
-                Icon(Icons.verified_user, size: 16, color: Colors.grey[600]),
-                SizedBox(width: 8),
-                Text(
-                  user.isEmailVerified ? 'Email Verified' : 'Email Not Verified',
+      elevation: 2,
+      child: InkWell(
+        onTap: () => _viewUserDetails(user),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // ✅ Avatar
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: AppTheme.customColors['babyBlue'],
+                child: Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: user.isEmailVerified ? Colors.green : Colors.orange,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
-            SizedBox(height: 16),
-            
-            // Action Buttons
-            Row(
-              children: [
-                // Change Role Button
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      final newRole = user.role == 'admin' ? 'user' : 'admin';
-                      _updateUserRole(user, newRole);
-                    },
-                    child: Text(
-                      user.role == 'admin' ? 'Make User' : 'Make Admin',
+              ),
+              
+              SizedBox(width: 16),
+              
+              // ✅ User Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
                       style: TextStyle(
-                        color: user.role == 'admin' ? Colors.green : Colors.blue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: user.role == 'admin' ? Colors.green : Colors.blue,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 12),
-                
-                // Delete Button (disabled for current user)
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: user.id == Provider.of<AuthService>(context).currentUser?.id
-                        ? null
-                        : () => _deleteUser(user),
-                    child: Text(
-                      'Delete',
+                    SizedBox(height: 4),
+                    Text(
+                      user.email,
                       style: TextStyle(
-                        color: user.id == Provider.of<AuthService>(context).currentUser?.id
-                            ? Colors.grey
-                            : Colors.red,
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontFamily: 'Poppins',
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: user.id == Provider.of<AuthService>(context).currentUser?.id
-                            ? Colors.grey
-                            : Colors.red,
-                      ),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 12, color: Colors.grey[600]),
+                        SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            user.phone ?? 'No phone',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
+                ),
+              ),
+              
+              // ✅ Role Badge
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: user.role == 'admin' ? Colors.blue[50] : Colors.green[50],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: user.role == 'admin' ? Colors.blue : Colors.green,
+                    width: 1,
                   ),
                 ),
-              ],
-            ),
-          ],
+                child: Text(
+                  user.role.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: user.role == 'admin' ? Colors.blue : Colors.green,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -351,117 +488,94 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.customColors['softCream'],
-      appBar: AppBar(
-        title: Text(
-          'Users Management',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        backgroundColor: AppTheme.customColors['babyBlue'],
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadUsers,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
+      backgroundColor: Colors.white, // ✅ Changed from softCream to white
       body: Column(
         children: [
-          // Search and Filter Bar
-          Padding(
+          // ✅ SIMPLIFIED Search Bar Only (No filters)
+          Container(
             padding: EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // Search Bar
-                TextField(
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                    _filterUsers();
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Search users...',
-                    prefixIcon: Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                ),
-                SizedBox(height: 12),
-                
-                // Role Filter
-                Row(
-                  children: [
-                    Text(
-                      'Filter by Role: ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    DropdownButton<String>(
-                      value: _filterRole,
-                      items: _roles.map((role) {
-                        return DropdownMenuItem(
-                          value: role,
-                          child: Text(role),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _filterRole = value!;
-                        });
-                        _filterUsers();
-                      },
-                    ),
-                  ],
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
                 ),
               ],
             ),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search users by name, email or phone...',
+                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                filled: true,
+                fillColor: Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, size: 20),
+                        onPressed: () {
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+              ),
+            ),
           ),
           
-          // Users Count
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+          // ✅ Users Count
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.grey[50],
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${_filteredUsers.length} Users Found',
+                  'Total Users: ${_users.length}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontFamily: 'Poppins',
+                    color: Colors.grey[700],
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _searchQuery = '';
-                      _filterRole = 'All';
-                    });
-                    _filterUsers();
-                  },
-                  child: Text('Clear Filters'),
-                ),
+                if (_searchQuery.isNotEmpty)
+                  Text(
+                    'Found: ${_filteredUsers.length}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.customColors['babyBlue'],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
               ],
             ),
           ),
           
-          // Users List
+          // ✅ Users List
           Expanded(
             child: _isLoading
                 ? Center(
@@ -477,6 +591,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontFamily: 'Poppins',
+                            color: Colors.grey[600],
                           ),
                         ),
                       ],
@@ -494,24 +609,26 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             ),
                             SizedBox(height: 16),
                             Text(
-                              'No users found',
+                              _searchQuery.isNotEmpty
+                                  ? 'No users found for "$_searchQuery"'
+                                  : 'No users registered yet',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 16,
                                 color: Colors.grey[500],
                                 fontFamily: 'Poppins',
                               ),
                             ),
                             SizedBox(height: 8),
-                            Text(
-                              _searchQuery.isNotEmpty || _filterRole != 'All'
-                                  ? 'Try adjusting your filters'
-                                  : 'No users registered yet',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[400],
-                                fontFamily: 'Poppins',
+                            if (!_searchQuery.isNotEmpty)
+                              ElevatedButton.icon(
+                                onPressed: _loadUsers,
+                                icon: Icon(Icons.refresh, size: 18),
+                                label: Text('Refresh'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.customColors['babyBlue'],
+                                  foregroundColor: Colors.white,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       )

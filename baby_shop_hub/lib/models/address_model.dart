@@ -1,10 +1,12 @@
+// models/address_model.dart
+
 class Address {
   final String id;
   final String name;
   final String street;
   final String city;
   final String state;
-  final String zipCode;
+  final String zipCode; // Changed from 'pincode' to 'zipCode'
   final bool isDefault;
 
   Address({
@@ -17,7 +19,11 @@ class Address {
     required this.isDefault,
   });
 
+  // No 'type', 'phone', 'pincode' getters - using these instead:
   String get fullAddress => '$street, $city, $state $zipCode';
+  
+  // You can add type as needed
+  String get type => name; // Using name as type, or add type field
 
   Map<String, dynamic> toMap() {
     return {
